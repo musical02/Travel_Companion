@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Money Exchange</title>
+    <link rel="stylesheet" href="MExchange.css">
+</head>
+<body>
+    <nav class="navbar">
+        <ul>
+            <li><a href="index.html">Home</a></li>
+            <li><a href="MoneyExchange.html">Currency Rate</a></li>
+        </ul>
+    </nav>
+    <h1 class="header">EXCHANGE NOW!!!</h1>
+    <div class="container">
+        <form id="exchangeForm" class="form-horizontal">
+            <div class="form-group">
+                <label for="amount">Amount:</label>
+                <input type="number" id="amount" name="amount" placeholder="Enter amount" required>
+            </div>
+            <div class="form-group">
+                <label for="fromCurrency">From:</label>
+                <select id="fromCurrency" name="fromCurrency" required>
+                    <!-- Currency options will be populated here -->
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="toCurrency">To:</label>
+                <select id="toCurrency" name="toCurrency" required>
+                    <!-- Currency options will be populated here -->
+                </select>
+            </div>
+        </form>
+        <div class="button-container">
+            <button type="button" onclick="performExchange()">Exchange</button>
+        </div>
+        <div id="result"></div>
+    </div>
+    <footer>
+        <p>&copy; 2024 Travel Companion. All rights reserved.</p>
+    </footer>
+    <script>
+        const apiKey = 'f8fd9faadf6160c9ef73bd8f';
+const requestUrl = `https://v6.exchangerate-api.com/v6/${apiKey}/latest/USD`;
+
+const currencies = [
+    { code: 'USD', name: 'United States Dollar' },
+    { code: 'EUR', name: 'Euro' },
+    { code: 'GBP', name: 'British Pound Sterling' },
+    { code: 'JPY', name: 'Japanese Yen' },
+    { code: 'AUD', name: 'Australian Dollar' },
+    { code: 'CAD', name: 'Canadian Dollar' },
+    { code: 'CHF', name: 'Swiss Franc' },
+    { code: 'CNY', name: 'Chinese Yuan' },
+    { code: 'SEK', name: 'Swedish Krona' },
+    { code: 'NZD', name: 'New Zealand Dollar' },
+    { code: 'MXN', name: 'Mexican Peso' },
+    { code: 'SGD', name: 'Singapore Dollar' },
+    { code: 'HKD', name: 'Hong Kong Dollar' },
+    { code: 'NOK', name: 'Norwegian Krone' },
+    { code: 'KRW', name: 'South Korean Won' },
+    { code: 'TRY', name: 'Turkish Lira' },
+    { code: 'INR', name: 'Indian Rupee' },
+    { code: 'RUB', name: 'Russian Ruble' },
+    { code: 'BRL', name: 'Brazilian Real' },
+    { code: 'ZAR', name: 'South African Rand' },
+    { code: 'PLN', name: 'Polish Zloty' },
+    { code: 'DKK', name: 'Danish Krone' },
+    { code: 'THB', name: 'Thai Baht' },
+    { code: 'MYR', name: 'Malaysian Ringgit' },
+    { code: 'IDR', name: 'Indonesian Rupiah' },
+    { code: 'HUF', name: 'Hungarian Forint' },
+    { code: 'CZK', name: 'Czech Koruna' },
+    { code: 'ILS', name: 'Israeli New Shekel' },
+    { code: 'CLP', name: 'Chilean Peso' },
+    { code: 'PHP', name: 'Philippine Peso' },
+    { code: 'AED', name: 'United Arab Emirates Dirham' },
+    { code: 'COP', name: 'Colombian Peso' },
+    { code: 'SAR', name: 'Saudi Riyal' },
+    { code: 'RON', name: 'Romanian Leu' },
+    { code: 'VND', name: 'Vietnamese Dong' },
+    { code: 'PKR', name: 'Pakistani Rupee' },
+    { code: 'BDT', name: 'Bangladeshi Taka' },
+    { code: 'EGP', name: 'Egyptian Pound' },
+    { code: 'KZT', name: 'Kazakhstani Tenge' },
+    { code: 'QAR', name: 'Qatari Riyal' },
+    { code: 'LKR', name: 'Sri Lankan Rupee' },
+    { code: 'NPR', name: 'Nepalese Rupee' },
+    { code: 'BGN', name: 'Bulgarian Lev' },
+    { code: 'ISK', name: 'Icelandic Króna' },
+    { code: 'HRK', name: 'Croatian Kuna' },
+    { code: 'BHD', name: 'Bahraini Dinar' },
+    { code: 'JOD', name: 'Jordanian Dinar' },
+    { code: 'OMR', name: 'Omani Rial' },
+    { code: 'KWD', name: 'Kuwaiti Dinar' },
+    { code: 'PEN', name: 'Peruvian Sol' }
+];
+
+const fromCurrency = document.getElementById('fromCurrency');
+const toCurrency = document.getElementById('toCurrency');
+
+currencies.forEach(currency => {
+    let option = document.createElement('option');
+    option.value = currency.code;
+    option.textContent = `${currency.name} (${currency.code})`;
+    fromCurrency.appendChild(option);
+
+    option = document.createElement('option');
+    option.value = currency.code;
+    option.textContent = `${currency.name} (${currency.code})`;
+    toCurrency.appendChild(option);
+});
+
+async function performExchange() {
+    const amount = document.getElementById('amount').value;
+    const from = fromCurrency.value;
+    const to = toCurrency.value;
+    const resultElement = document.getElementById('result');
+
+    if (amount === '' || from === '' || to === '') {
+        alert('Please fill in all fields');
+        return;
+    }
+
+    try {
+        const response = await fetch(requestUrl);
+        const data = await response.json();
+
+        if (response.ok) {
+            const exchangeRate = data.conversion_rates[to] / data.conversion_rates[from];
+            const convertedAmount = (amount * exchangeRate).toFixed(2);
+            resultElement.textContent = `Converted Amount: ${convertedAmount} ${to}`;
+            resultElement.classList.remove('hidden');
+        } else {
+            resultElement.textContent = `Error: ${data.message}`;
+            resultElement.classList.remove('hidden');
+        }
+    } catch (error) {
+        resultElement.textContent = `Error: ${error.message}`;
+        resultElement.classList.remove('hidden');
+    }
+}
+    </script>
+</body>
+
+</html>
+
+
+
+
+
+
+
+
+
+
+

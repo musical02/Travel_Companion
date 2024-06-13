@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather App</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <ul>
+            <li><a href="index.html">Home</a></li>
+            <li><a href="MoneyExchange.html">Currency Rate</a></li>
+        </ul>
+    </nav>
+    <div class="container">
+        <div class="wrapper">
+            <div class="img_section">
+                <div class="default_info">
+                    <h2 class="default_day">Sunday</h2>
+                    <span class="default_date">18 September 2023</span>
+                    <div class="icons">
+                        <img src="https://openweathermap.org/img/wn/10d@4x.png" alt="Weather Icon" />
+                        <h2 class="weather_temp">22°C</h2>
+                        <h3 class="cloudtxt">Overcast Clouds</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="content_section">
+                <form id="searchForm">
+                    <input id="place-input" type="text" placeholder="Search Location" class="input_field" required />
+                    <button type="submit" class="btn_search">Search</button>
+                </form>
+                <div class="day_info"></div>
+                <div class="list_content">
+                    <ul></ul>
+                </div>
+                <div class="suggestions">
+                    <h3>Suggestions</h3>
+                    <ul class="suggestions_list"></ul>
+                </div>
+            </div>
+            <div id="map" class="map"></div> <!-- Map Container -->
+        </div>
+    </div>
+    <footer>
+        <p>&copy; 2024 Travel Companion. All rights reserved.</p>
+    </footer>
+    <script>
+        "use strict";
+        
+        const API_KEY = "1eBKVLZArELpq8UbjCghl8ixGAu8GAMG"; //  AccuWeather API key
+        const googleApiKey = 'AIzaSyB-bK64mtISOU6fx6a0eZvXG4nP-sSU5w0'; //  Google Maps API key
+        
+        const dayEl = document.querySelector(".default_day");
+        const dateEl = document.querySelector(".default_date");
+        const btnEl = document.querySelector(".btn_search");
+        const inputEl = document.querySelector(".input_field");
+        
+        const iconsContainer = document.querySelector(".icons");
+        const dayInfoEl = document.querySelector(".day_info");
+        const listContentEl = document.querySelector(".list_content ul");
+        const suggestionsListEl = document.querySelector(".suggestions_list");
+        
+        const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        
+        let map, marker, service, markers = [];
+        
+        // Display the current day
+        const day = new Date();
+        const dayName = days[day.getDay()];
+        dayEl.textContent = dayName;
+        
+        // Display the current date
+        const month = day.toLocaleString("default", { month: "long" });
+        const date = day.getDate();
+        const year = day.getFullYear();
+        dateEl.textContent = `${date} ${month} ${year}`;
+        
+        // Event listener for the search button
+        btnEl.addEventListener("click", (e) => {
+            e.preventDefault();
+            const search = inputEl.value.trim();
+            if (search) {
+                inputEl.value = "";
+                findLocation(search);
+                searchPlace(search);
+            } else {
+                console.log("Please Enter City or Country Name");
+            }
+        });
+        
+        // Get user's current location
+        function getCurrentLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition((position) => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    const latLng = { lat, lng };
+                    updateMap(latLng);
+                    getWeatherByCoordinates(latLng);
+                }, (error) => {
+                    console.error('Error getting current location:', error);
+                });
+            } else {
+                console.log("Geolocation is not supported by this browser.");
+            }
+        }
+        
+        // Fetch weather data by coordinates
+        async function getWeatherByCoordinates(latLng) {
+            try {
+                const locationAPI = `https://dataservice.accuweather.com/locations/v1/cities/geoposition/search?apikey=${API_KEY}&q=${latLng.lat},${latLng.lng}`;
+                const locationData = await fetch(locationAPI);
+                const locationResult = await locationData.json();
+                console.log('Location Data:', locationResult);
+        
+                if (locationResult.Key) {
+                    const locationKey = locationResult.Key;
+                    const weatherAPI = `https://dataservice.accuweather.com/currentconditions/v1/${locationKey}?apikey=${API_KEY}`;
+                    const weatherData = await fetch(weatherAPI);
+                    const weatherResult = await weatherData.json();
+                    console.log('Weather Data:', weatherResult);
+        
+                    if (weatherResult.length > 0) {
+                        // Display image content
+                        const imageContent = displayImageContent(weatherResult[0]);
+        
+                        // Display right side content
+                        const rightSide = rightSideContent(locationResult, weatherResult[0]);
+        
+                        // Display forecast
+                        displayForecast(locationKey);
+        
+                        // Display suggestions
+                        displaySuggestions(locationResult);
+        
+                        setTimeout(() => {
+                            iconsContainer.innerHTML = "";
+                            iconsContainer.insertAdjacentHTML("afterbegin", imageContent);
+                            iconsContainer.classList.add("fadeIn");
+                            dayInfoEl.innerHTML = "";
+                            dayInfoEl.insertAdjacentHTML("afterbegin", rightSide);
+                        }, 1500);
+                    } else {
+                        console.log("No weather data found for the location");
+                    }
+                } else {
+                    const message = `<h2 class="weather_temp">404</2>
+                    <h3 class="cloudtxt">Location not found</h3>`;
+                    iconsContainer.innerHTML = "";
+                    iconsContainer.insertAdjacentHTML("afterbegin", message);
+                }
+            } catch (error) {
+                console.error('Error fetching location data:', error);
+            }
+        }
+        
+        // Fetch location data from Accuweather API
+        async function findLocation(name) {
+            iconsContainer.innerHTML = "";
+            dayInfoEl.innerHTML = "";
+            listContentEl.innerHTML = "";
+            suggestionsListEl.innerHTML = "";
+            clearMarkers();
+            try {
+                console.log(`Searching for location: ${name}`);
+                const locationAPI = `https://dataservice.accuweather.com/locations/v1/cities/search?apikey=${API_KEY}&q=${name}`;
+                const locationData = await fetch(locationAPI);
+                const locationResult = await locationData.json();
+                console.log('Location Data:', locationResult);
+        
+                if (locationResult.length > 0) {
+                    const locationKey = locationResult[0].Key;
+                    const weatherAPI = `https://dataservice.accuweather.com/currentconditions/v1/${locationKey}?apikey=${API_KEY}`;
+                    const weatherData = await fetch(weatherAPI);
+                    const weatherResult = await weatherData.json();
+                    console.log('Weather Data:', weatherResult);
+        
+                    if (weatherResult.length > 0) {
+                        // Display image content
+                        const imageContent = displayImageContent(weatherResult[0]);
+        
+                        // Display right side content
+                        const rightSide = rightSideContent(locationResult[0], weatherResult[0]);
+        
+                        // Display forecast
+                        displayForecast(locationKey);
+        
+                        // Display suggestions
+                        displaySuggestions(locationResult[0]);
+        
+                        setTimeout(() => {
+                            iconsContainer.insertAdjacentHTML("afterbegin", imageContent);
+                            iconsContainer.classList.add("fadeIn");
+                            dayInfoEl.insertAdjacentHTML("afterbegin", rightSide);
+                        }, 1500);
+                    } else {
+                        console.log("No weather data found for the location");
+                    }
+                } else {
+                    const message = `<h2 class="weather_temp">404</h2>
+                    <h3 class="cloudtxt">Location not found</h3>`;
+                    iconsContainer.insertAdjacentHTML("afterbegin", message);
+                }
+            } catch (error) {
+                console.error('Error fetching location data:', error);
+            }
+        }
+        
+        // Display image content and temperature
+        function displayImageContent(data) {
+            return `
+            <img src="https://developer.accuweather.com/sites/default/files/${data.WeatherIcon < 10 ? '0' : ''}${data.WeatherIcon}-s.png" alt="Weather Icon" />
+            <h2 class="weather_temp">${data.Temperature.Metric.Value}°C</h2>
+            <h3 class="cloudtxt">${data.WeatherText}</h3>`;
+        }
+        
+        // Display the right side content
+        function rightSideContent(location, weather) {
+            return `
+            <div class="content">
+                <p class="title">NAME</p>
+                <span class="value">${location.LocalizedName}, ${location.Country.LocalizedName}</span>
+            </div>
+            <div class="content">
+                <p class="title">TEMP</p>
+                <span class="value">${weather.Temperature.Metric.Value}°C</span>
+            </div>`;
+        }
+        
+        // Function to convert Fahrenheit to Celsius
+function fahrenheitToCelsius(fahrenheit) {
+    return ((fahrenheit - 32) * 5 / 9).toFixed(1);
+}
+
+// Mapping AccuWeather icon numbers to URLs
+const iconBaseUrl = "https://developer.accuweather.com/sites/default/files/";
+function getIconUrl(iconNumber) {
+    return `${iconBaseUrl}${iconNumber.toString().padStart(2, '0')}-s.png`;
+}
+
+// Display the 5-day forecast
+async function displayForecast(locationKey) {
+    const forecastAPI = `https://dataservice.accuweather.com/forecasts/v1/daily/5day/${locationKey}?apikey=${API_KEY}`;
+    try {
+        const forecastData = await fetch(forecastAPI);
+        const forecastResult = await forecastData.json();
+        console.log('Forecast Data:', forecastResult);
+
+        // Clear any existing forecast data
+        listContentEl.innerHTML = '';
+
+        forecastResult.DailyForecasts.forEach((day) => {
+            const minTemp = fahrenheitToCelsius(day.Temperature.Minimum.Value);
+            const maxTemp = fahrenheitToCelsius(day.Temperature.Maximum.Value);
+            const iconUrl = getIconUrl(day.Day.Icon); // Use Day.Icon for the icon
+            const weatherDescription = day.Day.IconPhrase; // Weather description
+
+            const listItem = `
+                <li>
+                    <span class="list_title">${days[new Date(day.Date).getDay()]}</span>
+                    <span class="list_title">${new Date(day.Date).getDate()} ${new Date(day.Date).toLocaleString('default', { month: 'short' })}</span>
+                    <div class="list_item">
+                        <img src="${iconUrl}" alt="Weather icon" class="weather_icon">
+                        <span class="weather_description">${weatherDescription}</span>
+                        <span class="list_text">Min: ${minTemp}°C</span>
+                        <span class="list_text">Max: ${maxTemp}°C</span>
+                    </div>
+                </li>`;
+            listContentEl.insertAdjacentHTML("beforeend", listItem);
+        });
+    } catch (error) {
+        console.error('Error fetching forecast data:', error);
+    }
+}
+
+
+        
+        // Search for a place using the Google Places API
+        function searchPlace(search) {
+            const request = {
+                query: search,
+                fields: ["name", "geometry"],
+            };
+        
+            service.textSearch(request, (results, status) => {
+                if (status === google.maps.places.PlacesServiceStatus.OK) {
+                    console.log('Place Search Results:', results);
+                    updateMap(results[0].geometry.location, results[0]);
+                } else {
+                    console.error('Error searching for place:', status);
+                }
+            });
+        }
+        
+        // Update the map with a new location
+        function updateMap(latLng, place = null) {
+            if (marker) {
+                marker.setMap(null);
+            }
+            map.setCenter(latLng);
+            map.setZoom(12);
+            marker = new google.maps.Marker({
+                position: latLng,
+                map: map,
+            });
+        
+            if (place) {
+                const contentString = `
+                    <div>
+                        <h2>${place.name}</h2>
+                        <p>${place.formatted_address}</p>
+                        ${place.photos && place.photos.length > 0 ? `<img src="${place.photos[0].getUrl({maxWidth: 200, maxHeight: 200})}" alt="${place.name}">` : ''}
+                    </div>
+                `;
+        
+                const infowindow = new google.maps.InfoWindow({
+                    content: contentString
+                });
+        
+                marker.addListener('click', () => {
+                    infowindow.open(map, marker);
+                });
+            }
+        }
+        
+        // Display suggestions for attractive places
+        function displaySuggestions(location) {
+            const latLng = new google.maps.LatLng(location.GeoPosition.Latitude, location.GeoPosition.Longitude);
+            const request = {
+                location: latLng,
+                radius: '5000',
+                type: ['tourist_attraction']
+            };
+        
+            service.nearbySearch(request, (results, status) => {
+                if (status === google.maps.places.PlacesServiceStatus.OK) {
+                    suggestionsListEl.innerHTML = '';
+                    clearMarkers();
+                    results.forEach((place) => {
+                        const listItem = `<li>${place.name} - ${place.vicinity}</li>`;
+                        suggestionsListEl.insertAdjacentHTML("beforeend", listItem);
+        
+                        const placeMarker = new google.maps.Marker({
+                            position: place.geometry.location,
+                            map: map,
+                            title: place.name,
+                        });
+        
+                        const contentString = `
+                            <div>
+                                <h2>${place.name}</h2>
+                                <p>${place.vicinity}</p>
+                                ${place.photos && place.photos.length > 0 ? `<img src="${place.photos[0].getUrl({maxWidth: 200, maxHeight: 200})}" alt="${place.name}">` : ''}
+                            </div>
+                        `;
+        
+                        const infowindow = new google.maps.InfoWindow({
+                            content: contentString
+                        });
+        
+                        placeMarker.addListener('click', () => {
+                            infowindow.open(map, placeMarker);
+                        });
+        
+                        markers.push(placeMarker);
+                    });
+                } else {
+                    console.error('Error fetching suggestions:', status);
+                }
+            });
+        }
+        
+        // Clear markers from the map
+        function clearMarkers() {
+            markers.forEach(marker => marker.setMap(null));
+            markers = [];
+        }
+        
+        // Initialize the Google Map
+        function initMap() {
+            const defaultLocation = { lat: 51.5074, lng: -0.1278 }; // Default to London, UK
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: defaultLocation,
+                zoom: 12,
+            });
+            service = new google.maps.places.PlacesService(map);
+        
+            getCurrentLocation();
+        }
+        
+        window.onload = function() {
+            initMap();
+        };
+        </script>
+        <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB-bK64mtISOU6fx6a0eZvXG4nP-sSU5w0&libraries=places&callback=initMap"></script>
+        
+</body>
+</html>
